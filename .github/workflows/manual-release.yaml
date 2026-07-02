@@ -1,11 +1,15 @@
 name: Manual Release
 
 on:
-  workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: write
   packages: write
+
+env:
+  TAG: ${{ github.event.release.tag_name }}
 
 jobs:
   manual-release:
@@ -14,16 +18,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.TAG }}
           fetch-depth: 0
-
-      - name: Get latest release tag
-        id: get-tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=$(gh release view --json tagName -q .tagName)
-          echo "Latest release tag: $TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -34,7 +30,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.get-tag.outputs.tag }}"
           gh release view "$TAG" --json assets -q '.assets[].name' | while read -r asset; do
             echo "Deleting asset: $asset"
             gh release delete-asset "$TAG" "$asset" --yes
@@ -48,7 +43,7 @@ jobs:
           args: release --clean --skip=validate --parallelism=1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: ${{ steps.get-tag.outputs.tag }}
+          GORELEASER_CURRENT_TAG: ${{ env.TAG }}
           GOGC: "50"
           GOMEMLIMIT: "5GiB"
 
@@ -56,7 +51,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.get-tag.outputs.tag }}"
           echo "Marking $TAG as latest release"
           gh release edit "$TAG" --latest
 
@@ -69,15 +63,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Get latest release tag
-        id: get-tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=$(gh release view --json tagName -q .tagName)
-          echo "Latest release tag: $TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+        with:
+          ref: ${{ env.TAG }}
 
       - name: Set build metadata
         id: build-meta
@@ -105,9 +92,7 @@ jobs:
           file: build/docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.get-tag.outputs.tag }}
-            ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ github.repository }}:${{ env.TAG }}
           build-args: |
             BUILD_TIME=${{ steps.build-meta.outputs.build_time }}
             COMMIT_HASH=${{ steps.build-meta.outputs.commit_hash }}
