@@ -360,6 +360,7 @@ type ACPStepConfig struct {
 	Command      string            `yaml:"command,omitempty"`       // Custom agent command (overrides built-in registry)
 	Args         []string          `yaml:"args,omitempty"`          // Custom agent command arguments
 	Env          map[string]string `yaml:"env,omitempty"`           // Environment variables for the agent process
+	Model         string            `yaml:"model,omitempty"`           // LLM model override (ACP session config or agent CLI flag)
 	WriteEnabled bool              `yaml:"write_enabled,omitempty"` // Allow the agent to write files (default: false)
 }
 

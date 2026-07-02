@@ -97,9 +97,14 @@ func TestResolveAgentName(t *testing.T) {
 			want:  "opencode",
 		},
 		{
-			name:  "gemini resolves correctly",
-			model: "gemini",
-			want:  "gemini",
+			name:  "agy resolves correctly",
+			model: "agy",
+			want:  "agy",
+		},
+		{
+			name:  "cursor resolves correctly",
+			model: "cursor",
+			want:  "cursor",
 		},
 	}
 

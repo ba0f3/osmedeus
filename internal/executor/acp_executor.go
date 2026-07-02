@@ -24,16 +24,18 @@ import (
 
 // acpAgentDef describes a built-in agent command.
 type acpAgentDef struct {
-	Command string
-	Args    []string
+	Command  string
+	Args     []string
+	CLIModel bool // pass --model as a subprocess flag when Model is set
 }
 
 // builtinACPAgents maps agent names to their command definitions.
 var builtinACPAgents = map[string]acpAgentDef{
 	"claude-code": {Command: "npx", Args: []string{"-y", "@zed-industries/claude-code-acp@latest"}},
 	"codex":       {Command: "npx", Args: []string{"-y", "@zed-industries/codex-acp"}},
+	"cursor":      {Command: "agent", Args: []string{"acp"}},
 	"opencode":    {Command: "opencode", Args: []string{"acp"}},
-	"gemini":      {Command: "gemini", Args: []string{"--experimental-acp"}},
+	"agy":         {Command: "agy", Args: []string{"--acp"}, CLIModel: true},
 }
 
 // ACPExecutor implements StepExecutorPlugin for agent-acp steps.
@@ -142,6 +144,7 @@ func (e *ACPExecutor) Execute(ctx context.Context, step *core.Step, execCtx *cor
 	if step.ACPConfig != nil {
 		cfg.Env = step.ACPConfig.Env
 		cfg.WriteEnabled = step.ACPConfig.WriteEnabled
+		cfg.Model = step.ACPConfig.Model
 	}
 
 	// Delegate to standalone function
@@ -178,6 +181,7 @@ type RunAgentACPConfig struct {
 	Env          map[string]string // Extra environment variables for agent process
 	WriteEnabled bool              // Allow file writes (default: false)
 	StreamWriter io.Writer         // Optional writer for real-time output streaming
+	Model        string            // LLM model override (ACP session config or agent CLI flag)
 }
 
 // RunAgentACP spawns an ACP agent subprocess and returns its output.
@@ -205,7 +209,7 @@ func RunAgentACP(ctx context.Context, prompt, agentName string, cfg *RunAgentACP
 		return "", "", fmt.Errorf("unknown agent: %q (available: %s)", agentName, availableAgentNames())
 	}
 	command := def.Command
-	args := def.Args
+	args := appendAgentArgs(def, cfg.Model)
 
 	// Verify command exists in PATH
 	cmdPath, err := exec.LookPath(command)
@@ -342,6 +346,14 @@ func RunAgentACP(ctx context.Context, prompt, agentName string, cfg *RunAgentACP
 	log.Debug("ACP session created",
 		zap.String("sessionId", string(sess.SessionId)))
 
+	if cfg.Model != "" {
+		if err := setSessionModel(ctx, conn, sess, cfg.Model, def); err != nil {
+			stderrStr := stderrBuf.String()
+			return "", stderrStr, fmt.Errorf("ACP set model failed: %w", err)
+		}
+		log.Debug("ACP model set", zap.String("model", cfg.Model))
+	}
+
 	log.Debug("sending ACP prompt, waiting for agent completion...",
 		zap.Int("promptLength", len(prompt)))
 
@@ -397,6 +409,82 @@ func resolveAgentName(step *core.Step) string {
 func IsBuiltinAgent(name string) bool {
 	_, ok := builtinACPAgents[name]
 	return ok
+}
+
+// appendAgentArgs returns a copy of the agent args, optionally with --model appended.
+func appendAgentArgs(def acpAgentDef, model string) []string {
+	args := append([]string(nil), def.Args...)
+	if model != "" && def.CLIModel {
+		args = append(args, "--model", model)
+	}
+	return args
+}
+
+// setSessionModel selects an LLM model via session/set_config_option when the agent exposes one.
+// Agents with CLIModel receive --model on the subprocess instead; this is a no-op for them.
+func setSessionModel(ctx context.Context, conn *acp.ClientSideConnection, sess acp.NewSessionResponse, model string, def acpAgentDef) error {
+	if model == "" || def.CLIModel {
+		return nil
+	}
+	sel := findModelSelectOption(sess.ConfigOptions)
+	if sel == nil {
+		return fmt.Errorf("agent does not expose a model config option")
+	}
+	valueID := resolveModelValueID(sel, model)
+	if valueID == "" {
+		return fmt.Errorf("model %q not found in agent options", model)
+	}
+	_, err := conn.SetSessionConfigOption(ctx, acp.SetSessionConfigOptionRequest{
+		ValueId: &acp.SetSessionConfigOptionValueId{
+			SessionId: sess.SessionId,
+			ConfigId:  sel.Id,
+			Value:     valueID,
+		},
+	})
+	return err
+}
+
+func findModelSelectOption(options []acp.SessionConfigOption) *acp.SessionConfigOptionSelect {
+	for _, opt := range options {
+		if opt.Select == nil {
+			continue
+		}
+		sel := opt.Select
+		if sel.Category != nil && *sel.Category == acp.SessionConfigOptionCategoryModel {
+			return sel
+		}
+		if strings.EqualFold(string(sel.Id), "model") {
+			return sel
+		}
+	}
+	return nil
+}
+
+func resolveModelValueID(sel *acp.SessionConfigOptionSelect, model string) acp.SessionConfigValueId {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return ""
+	}
+	for _, o := range flattenSelectOptions(sel.Options) {
+		if string(o.Value) == model || strings.EqualFold(o.Name, model) {
+			return o.Value
+		}
+	}
+	return acp.SessionConfigValueId(model)
+}
+
+func flattenSelectOptions(opts acp.SessionConfigSelectOptions) []acp.SessionConfigSelectOption {
+	if opts.Ungrouped != nil {
+		return *opts.Ungrouped
+	}
+	if opts.Grouped == nil {
+		return nil
+	}
+	var out []acp.SessionConfigSelectOption
+	for _, g := range *opts.Grouped {
+		out = append(out, g.Options...)
+	}
+	return out
 }
 
 // availableAgentNames returns a comma-separated list of built-in agent names.

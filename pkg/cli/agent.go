@@ -16,6 +16,7 @@ import (
 
 var (
 	agentName    string
+	agentModel   string
 	agentCwd     string
 	agentStdin   bool
 	agentTimeout string
@@ -32,6 +33,7 @@ var agentCmd = &cobra.Command{
 
 func init() {
 	agentCmd.Flags().StringVar(&agentName, "agent", core.DefaultACPAgent, "agent to use (see --list for available agents)")
+	agentCmd.Flags().StringVar(&agentModel, "model", "", "LLM model to use instead of the agent default")
 	agentCmd.Flags().StringVar(&agentCwd, "cwd", "", "working directory for the agent (default: current directory)")
 	agentCmd.Flags().BoolVar(&agentStdin, "stdin", false, "read message from stdin")
 	agentCmd.Flags().StringVar(&agentTimeout, "timeout", "30m", "timeout duration (e.g., 30m, 1h)")
@@ -73,6 +75,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	// Build config
 	cfg := &executor.RunAgentACPConfig{
 		Cwd:          agentCwd,
+		Model:        agentModel,
 		StreamWriter: os.Stdout,
 	}
 

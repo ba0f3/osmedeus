@@ -1398,6 +1398,9 @@ func UsageAgent() string {
   ` + terminal.Green("# Use a specific agent") + `
   osmedeus agent ` + terminal.Yellow("--agent") + ` codex "Explain this project"
 
+  ` + terminal.Green("# Override the agent default model") + `
+  osmedeus agent ` + terminal.Yellow("--agent") + ` agy ` + terminal.Yellow("--model") + ` gemini-2.5-pro "Review this code"
+
   ` + terminal.Green("# Read message from stdin") + `
   echo "Analyze this" | osmedeus agent ` + terminal.Yellow("--stdin") + `
 

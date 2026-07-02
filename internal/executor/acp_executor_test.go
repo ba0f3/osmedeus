@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	acp "github.com/coder/acp-go-sdk"
 	"github.com/j3ssie/osmedeus/v5/internal/core"
 	"github.com/j3ssie/osmedeus/v5/internal/parser"
 	"github.com/stretchr/testify/assert"
@@ -45,16 +46,22 @@ func TestACPExecutor_ResolveAgent_BuiltIn(t *testing.T) {
 			wantArgs:    []string{"-y", "@zed-industries/codex-acp"},
 		},
 		{
+			name:        "cursor",
+			agent:       "cursor",
+			wantCommand: "agent",
+			wantArgs:    []string{"acp"},
+		},
+		{
 			name:        "opencode",
 			agent:       "opencode",
 			wantCommand: "opencode",
 			wantArgs:    []string{"acp"},
 		},
 		{
-			name:        "gemini",
-			agent:       "gemini",
-			wantCommand: "gemini",
-			wantArgs:    []string{"--experimental-acp"},
+			name:        "agy",
+			agent:       "agy",
+			wantCommand: "agy",
+			wantArgs:    []string{"--acp"},
 		},
 		{
 			name:    "unknown agent",
@@ -375,7 +382,36 @@ func TestListAgentNames(t *testing.T) {
 	assert.NotEmpty(t, names)
 	assert.Contains(t, names, "claude-code")
 	assert.Contains(t, names, "codex")
+	assert.Contains(t, names, "cursor")
 	assert.Contains(t, names, "opencode")
-	assert.Contains(t, names, "gemini")
+	assert.Contains(t, names, "agy")
 	assert.Equal(t, len(builtinACPAgents), len(names))
+}
+
+func TestAppendAgentArgs_Model(t *testing.T) {
+	def := builtinACPAgents["agy"]
+	assert.Equal(t, []string{"--acp", "--model", "gemini-2.5-pro"}, appendAgentArgs(def, "gemini-2.5-pro"))
+	assert.Equal(t, []string{"--acp"}, appendAgentArgs(def, ""))
+
+	claude := builtinACPAgents["claude-code"]
+	assert.Equal(t, claude.Args, appendAgentArgs(claude, "sonnet"))
+}
+
+func TestFindModelSelectOption(t *testing.T) {
+	category := acp.SessionConfigOptionCategoryModel
+	opts := []acp.SessionConfigOption{{
+		Select: &acp.SessionConfigOptionSelect{
+			Id:       "model",
+			Category: &category,
+			Options: acp.SessionConfigSelectOptions{
+				Ungrouped: &acp.SessionConfigSelectOptionsUngrouped{
+					{Name: "GPT-4.1", Value: "gpt-4.1"},
+				},
+			},
+		},
+	}}
+	sel := findModelSelectOption(opts)
+	require.NotNil(t, sel)
+	assert.Equal(t, acp.SessionConfigValueId("gpt-4.1"), resolveModelValueID(sel, "GPT-4.1"))
+	assert.Equal(t, acp.SessionConfigValueId("gpt-4.1"), resolveModelValueID(sel, "gpt-4.1"))
 }
