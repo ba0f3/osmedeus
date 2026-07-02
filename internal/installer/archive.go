@@ -103,9 +103,24 @@ func ExtractTarGz(src, dest string) error {
 }
 
 func extractTarEntry(header *tar.Header, tr *tar.Reader, dest string) error {
-	// Sanitize the path to prevent path traversal
-	path := filepath.Join(dest, header.Name)
-	if !strings.HasPrefix(path, filepath.Clean(dest)+string(os.PathSeparator)) {
+	cleanDest := filepath.Clean(dest)
+
+	// Build candidate output path.
+	candidatePath := filepath.Join(cleanDest, header.Name)
+	parentDir := filepath.Dir(candidatePath)
+
+	// Ensure parent exists so symlink resolution is meaningful.
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		return err
+	}
+
+	// Resolve parent symlinks and rebuild final output path.
+	resolvedParent, err := filepath.EvalSymlinks(parentDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve parent path %s: %w", parentDir, err)
+	}
+	path := filepath.Join(resolvedParent, filepath.Base(candidatePath))
+	if !strings.HasPrefix(filepath.Clean(path), cleanDest+string(os.PathSeparator)) && filepath.Clean(path) != cleanDest {
 		return fmt.Errorf("invalid file path: %s", header.Name)
 	}
 
@@ -116,11 +131,6 @@ func extractTarEntry(header *tar.Header, tr *tar.Reader, dest string) error {
 		}
 
 	case tar.TypeReg:
-		// Create parent directory
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			return err
-		}
-
 		outFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode))
 		if err != nil {
 			return err
@@ -133,10 +143,22 @@ func extractTarEntry(header *tar.Header, tr *tar.Reader, dest string) error {
 		_ = outFile.Close()
 
 	case tar.TypeSymlink:
-		// Create parent directory
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			return err
+		if filepath.IsAbs(header.Linkname) {
+			return fmt.Errorf("invalid symlink target: %s", header.Linkname)
 		}
+
+		// Resolve symlinks for the target parent and ensure target remains within destination.
+		targetCandidate := filepath.Join(filepath.Dir(path), header.Linkname)
+		targetParent := filepath.Dir(targetCandidate)
+		resolvedTargetParent, err := filepath.EvalSymlinks(targetParent)
+		if err != nil {
+			return fmt.Errorf("failed to resolve symlink target parent %s: %w", targetParent, err)
+		}
+		resolvedTarget := filepath.Join(resolvedTargetParent, filepath.Base(targetCandidate))
+		if !strings.HasPrefix(filepath.Clean(resolvedTarget), cleanDest+string(os.PathSeparator)) && filepath.Clean(resolvedTarget) != cleanDest {
+			return fmt.Errorf("invalid symlink target: %s", header.Linkname)
+		}
+
 		if err := os.Symlink(header.Linkname, path); err != nil {
 			return err
 		}
