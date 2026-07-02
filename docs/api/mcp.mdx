@@ -1,0 +1,36 @@
+---
+title: "MCP"
+description: "Remote MCP endpoint for AI agents"
+---
+
+# MCP
+
+Osmedeus exposes a remote MCP endpoint from the existing HTTP server.
+
+Start the server:
+
+```bash
+osmedeus server
+```
+
+Default endpoint:
+
+```text
+http://127.0.0.1:8002/osm/mcp
+```
+
+Print client configuration:
+
+```bash
+export OSMEDEUS_API_TOKEN=<token>
+osmedeus mcp config --print
+```
+
+The endpoint provides read-only tools in the foundation release:
+
+- `osmedeus.context.resolve_target`
+- `osmedeus.assets.search`
+- `osmedeus.vulns.search`
+- `osmedeus.runs.list`
+
+Tools that save workflows or launch scans are not part of the foundation release. Those actions require approval-gated tools.

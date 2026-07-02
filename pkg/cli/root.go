@@ -330,6 +330,7 @@ func init() {
 	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(assetsCmd)
 	rootCmd.AddCommand(agentCmd)
+	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(queryCmd)
 
 	// Register the run_agent hook so the JS run_agent() function can call the executor

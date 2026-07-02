@@ -182,6 +182,29 @@ type RunAgentACPConfig struct {
 	WriteEnabled bool              // Allow file writes (default: false)
 	StreamWriter io.Writer         // Optional writer for real-time output streaming
 	Model        string            // LLM model override (ACP session config or agent CLI flag)
+	MCPURL       string            // Remote Osmedeus MCP HTTP endpoint
+	MCPToken     string            // Bearer token for MCP requests
+	MCPName      string            // MCP server name passed to the agent
+}
+
+func (c *RunAgentACPConfig) HasMCP() bool {
+	return c != nil && strings.TrimSpace(c.MCPURL) != ""
+}
+
+func buildHTTPMCPServer(name, url, token string) acp.McpServer {
+	if name == "" {
+		name = "osmedeus"
+	}
+	headers := []acp.HttpHeader{}
+	if token != "" {
+		headers = append(headers, acp.HttpHeader{Name: "Authorization", Value: "Bearer " + token})
+	}
+	return acp.McpServer{Http: &acp.McpServerHttpInline{
+		Name:    name,
+		Type:    "http",
+		Url:     url,
+		Headers: headers,
+	}}
 }
 
 // RunAgentACP spawns an ACP agent subprocess and returns its output.
@@ -302,7 +325,7 @@ func RunAgentACP(ctx context.Context, prompt, agentName string, cfg *RunAgentACP
 		zap.Int("protocolVersion", acp.ProtocolVersionNumber))
 
 	// Initialize
-	_, initErr := conn.Initialize(ctx, acp.InitializeRequest{
+	initResp, initErr := conn.Initialize(ctx, acp.InitializeRequest{
 		ProtocolVersion: acp.ProtocolVersionNumber,
 		ClientCapabilities: acp.ClientCapabilities{
 			Fs: acp.FileSystemCapabilities{
@@ -333,10 +356,18 @@ func RunAgentACP(ctx context.Context, prompt, agentName string, cfg *RunAgentACP
 
 	log.Debug("creating ACP session", zap.String("cwd", cwd))
 
+	mcpServers := []acp.McpServer{}
+	if cfg.HasMCP() {
+		if !initResp.AgentCapabilities.McpCapabilities.Http {
+			return "", stderrBuf.String(), fmt.Errorf("agent %q does not support HTTP MCP; rerun with --no-mcp or use an agent with HTTP MCP support", agentName)
+		}
+		mcpServers = append(mcpServers, buildHTTPMCPServer(cfg.MCPName, cfg.MCPURL, cfg.MCPToken))
+	}
+
 	// Create session
 	sess, sessErr := conn.NewSession(ctx, acp.NewSessionRequest{
 		Cwd:        cwd,
-		McpServers: []acp.McpServer{},
+		McpServers: mcpServers,
 	})
 	if sessErr != nil {
 		stderrStr := stderrBuf.String()

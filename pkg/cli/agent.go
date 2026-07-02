@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/j3ssie/osmedeus/v5/internal/config"
 	"github.com/j3ssie/osmedeus/v5/internal/core"
 	"github.com/j3ssie/osmedeus/v5/internal/executor"
 	"github.com/j3ssie/osmedeus/v5/internal/terminal"
@@ -21,6 +22,8 @@ var (
 	agentStdin   bool
 	agentTimeout string
 	agentList    bool
+	agentNoMCP   bool
+	agentMCPURL  string
 )
 
 // agentCmd runs an ACP agent interactively from the terminal.
@@ -38,6 +41,8 @@ func init() {
 	agentCmd.Flags().BoolVar(&agentStdin, "stdin", false, "read message from stdin")
 	agentCmd.Flags().StringVar(&agentTimeout, "timeout", "30m", "timeout duration (e.g., 30m, 1h)")
 	agentCmd.Flags().BoolVar(&agentList, "list", false, "list available agents")
+	agentCmd.Flags().BoolVar(&agentNoMCP, "no-mcp", false, "run without Osmedeus MCP tools")
+	agentCmd.Flags().StringVar(&agentMCPURL, "mcp-url", "", "Osmedeus MCP URL (default: configured server URL + /osm/mcp)")
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
@@ -72,11 +77,23 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	mcpURL := agentMCPURL
+	if mcpURL == "" {
+		cfg := config.Get()
+		if cfg != nil {
+			mcpURL = cfg.Server.GetMCPURL()
+		}
+	}
+	mcpCfg := resolveAgentMCPConfig(mcpURL, agentNoMCP, os.Getenv("OSMEDEUS_API_TOKEN"))
+
 	// Build config
 	cfg := &executor.RunAgentACPConfig{
 		Cwd:          agentCwd,
 		Model:        agentModel,
 		StreamWriter: os.Stdout,
+		MCPURL:       mcpCfg.MCPURL,
+		MCPToken:     mcpCfg.MCPToken,
+		MCPName:      mcpCfg.MCPName,
 	}
 
 	_, _, err = executor.RunAgentACP(ctx, message, agentName, cfg)
@@ -109,4 +126,15 @@ func resolveAgentMessage(args []string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no message provided: use positional argument, --stdin, or pipe with -")
+}
+
+func resolveAgentMCPConfig(url string, disabled bool, token string) executor.RunAgentACPConfig {
+	if disabled {
+		return executor.RunAgentACPConfig{}
+	}
+	return executor.RunAgentACPConfig{
+		MCPURL:   url,
+		MCPToken: token,
+		MCPName:  "osmedeus",
+	}
 }

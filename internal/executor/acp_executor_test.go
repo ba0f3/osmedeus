@@ -415,3 +415,19 @@ func TestFindModelSelectOption(t *testing.T) {
 	assert.Equal(t, acp.SessionConfigValueId("gpt-4.1"), resolveModelValueID(sel, "GPT-4.1"))
 	assert.Equal(t, acp.SessionConfigValueId("gpt-4.1"), resolveModelValueID(sel, "gpt-4.1"))
 }
+
+func TestBuildHTTPMCPServer(t *testing.T) {
+	server := buildHTTPMCPServer("osmedeus", "http://127.0.0.1:8002/osm/mcp", "secret")
+	require.NotNil(t, server.Http)
+	require.Equal(t, "osmedeus", server.Http.Name)
+	require.Equal(t, "http", server.Http.Type)
+	require.Equal(t, "http://127.0.0.1:8002/osm/mcp", server.Http.Url)
+	require.Len(t, server.Http.Headers, 1)
+	require.Equal(t, "Authorization", server.Http.Headers[0].Name)
+	require.Equal(t, "Bearer secret", server.Http.Headers[0].Value)
+}
+
+func TestRunAgentACPConfigMCPEnabled(t *testing.T) {
+	cfg := &RunAgentACPConfig{MCPURL: "http://127.0.0.1:8002/osm/mcp"}
+	require.True(t, cfg.HasMCP())
+}

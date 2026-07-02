@@ -403,6 +403,13 @@ func (s *Server) setupRoutes() {
 		api.Post("/events/emit", handlers.EmitEvent(s.eventReceiver))
 	}
 
+	// Remote MCP endpoint for AI agent integration
+	if s.config.Server.IsMCPEnabled() {
+		mcpPath := s.config.Server.GetMCPPath()
+		s.app.Get(mcpPath, handlers.MCPHealth())
+		s.app.Post(mcpPath, handlers.MCP(s.config))
+	}
+
 	// Serve workspace files under /ws/{workspace_prefix_key}/
 	// Allows direct access to run outputs in workspaces directory (no auth required)
 	if s.config.Server.WorkspacePrefixKey != "" && s.config.WorkspacesPath != "" {
