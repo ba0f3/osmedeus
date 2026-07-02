@@ -1,24 +1,35 @@
 name: Manual Release
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: write
   packages: write
 
-env:
-  TAG: ${{ github.event.release.tag_name }}
-
 jobs:
+  resolve-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.get-tag.outputs.tag }}
+    steps:
+      - name: Get latest release tag
+        id: get-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh release view --json tagName -q .tagName)
+          echo "Latest release tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
   manual-release:
+    needs: resolve-tag
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ needs.resolve-tag.outputs.tag }}
           fetch-depth: 0
 
       - name: Set up Go
@@ -29,6 +40,7 @@ jobs:
       - name: Delete existing release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve-tag.outputs.tag }}
         run: |
           gh release view "$TAG" --json assets -q '.assets[].name' | while read -r asset; do
             echo "Deleting asset: $asset"
@@ -43,18 +55,20 @@ jobs:
           args: release --clean --skip=validate --parallelism=1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: ${{ env.TAG }}
+          GORELEASER_CURRENT_TAG: ${{ needs.resolve-tag.outputs.tag }}
           GOGC: "50"
           GOMEMLIMIT: "5GiB"
 
       - name: Mark release as latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve-tag.outputs.tag }}
         run: |
           echo "Marking $TAG as latest release"
           gh release edit "$TAG" --latest
 
   docker-release:
+    needs: resolve-tag
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -64,7 +78,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ needs.resolve-tag.outputs.tag }}
 
       - name: Set build metadata
         id: build-meta
@@ -92,7 +106,7 @@ jobs:
           file: build/docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ env.TAG }}
+          tags: ghcr.io/${{ github.repository }}:${{ needs.resolve-tag.outputs.tag }}
           build-args: |
             BUILD_TIME=${{ steps.build-meta.outputs.build_time }}
             COMMIT_HASH=${{ steps.build-meta.outputs.commit_hash }}
