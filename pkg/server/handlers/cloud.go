@@ -30,12 +30,12 @@ func loadCloudConfigFromCfg(cfg *config.Config) (*config.CloudConfigs, error) {
 
 // CreateCloudInstancesRequest represents a request to provision cloud infrastructure
 type CreateCloudInstancesRequest struct {
-	Provider      string            `json:"provider"`                  // required: aws, gcp, digitalocean, linode, azure, hetzner
-	InstanceCount int               `json:"instance_count"`            // required: number of instances (>= 1)
-	InstanceType  string            `json:"instance_type,omitempty"`   // override default instance size
-	Region        string            `json:"region,omitempty"`          // override default region
-	UseSpot       bool              `json:"use_spot,omitempty"`        // use spot/preemptible instances
-	Tags          map[string]string `json:"tags,omitempty"`            // resource tags
+	Provider      string            `json:"provider"`                // required: aws, gcp, digitalocean, linode, azure, hetzner
+	InstanceCount int               `json:"instance_count"`          // required: number of instances (>= 1)
+	InstanceType  string            `json:"instance_type,omitempty"` // override default instance size
+	Region        string            `json:"region,omitempty"`        // override default region
+	UseSpot       bool              `json:"use_spot,omitempty"`      // use spot/preemptible instances
+	Tags          map[string]string `json:"tags,omitempty"`          // resource tags
 }
 
 // EstimateCloudCostRequest represents a cost estimation request
@@ -138,17 +138,17 @@ func ValidateCloudProvider(cfg *config.Config) fiber.Handler {
 		provider, err := cloud.CreateProvider(cloudCfg, cloud.ProviderType(providerName))
 		if err != nil {
 			return c.JSON(fiber.Map{
-				"provider":  providerName,
-				"valid":     false,
-				"message":   err.Error(),
+				"provider": providerName,
+				"valid":    false,
+				"message":  err.Error(),
 			})
 		}
 
 		if err := provider.Validate(c.Context()); err != nil {
 			return c.JSON(fiber.Map{
-				"provider":  providerName,
-				"valid":     false,
-				"message":   err.Error(),
+				"provider": providerName,
+				"valid":    false,
+				"message":  err.Error(),
 			})
 		}
 
@@ -427,9 +427,9 @@ func GetCloudInstanceStatus(cfg *config.Config) fiber.Handler {
 		details := make([]fiber.Map, 0, len(status.Details))
 		for _, d := range status.Details {
 			details = append(details, fiber.Map{
-				"resource_id":      d.ResourceID,
-				"status":           d.Status,
-				"message":          d.Message,
+				"resource_id":       d.ResourceID,
+				"status":            d.Status,
+				"message":           d.Message,
 				"worker_registered": d.WorkerRegistered,
 			})
 		}

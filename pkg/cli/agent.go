@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -16,14 +17,15 @@ import (
 )
 
 var (
-	agentName    string
-	agentModel   string
-	agentCwd     string
-	agentStdin   bool
-	agentTimeout string
-	agentList    bool
-	agentNoMCP   bool
-	agentMCPURL  string
+	agentName                string
+	agentModel               string
+	agentCwd                 string
+	agentStdin               bool
+	agentTimeout             string
+	agentList                bool
+	agentNoMCP               bool
+	agentMCPURL              string
+	agentMCPAllowRemoteToken bool
 )
 
 // agentCmd runs an ACP agent interactively from the terminal.
@@ -43,6 +45,7 @@ func init() {
 	agentCmd.Flags().BoolVar(&agentList, "list", false, "list available agents")
 	agentCmd.Flags().BoolVar(&agentNoMCP, "no-mcp", false, "run without Osmedeus MCP tools")
 	agentCmd.Flags().StringVar(&agentMCPURL, "mcp-url", "", "Osmedeus MCP URL (default: configured server URL + /osm/mcp)")
+	agentCmd.Flags().BoolVar(&agentMCPAllowRemoteToken, "mcp-allow-remote-token", false, "allow sending OSMEDEUS_API_TOKEN to a remote --mcp-url host")
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
@@ -77,14 +80,20 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	appCfg := config.Get()
 	mcpURL := agentMCPURL
-	if mcpURL == "" {
-		cfg := config.Get()
-		if cfg != nil {
-			mcpURL = cfg.Server.GetMCPURL()
+	trustedMCPURL := ""
+	if appCfg != nil {
+		trustedMCPURL = appCfg.Server.GetMCPURL()
+		if mcpURL == "" {
+			mcpURL = trustedMCPURL
 		}
 	}
-	mcpCfg := resolveAgentMCPConfig(mcpURL, agentNoMCP, os.Getenv("OSMEDEUS_API_TOKEN"))
+	token := os.Getenv("OSMEDEUS_API_TOKEN")
+	mcpCfg := resolveAgentMCPConfig(mcpURL, agentNoMCP, token, trustedMCPURL, agentMCPAllowRemoteToken)
+	if !agentNoMCP && token != "" && mcpURL != "" && mcpCfg.MCPToken == "" {
+		printer.Warning("not sending OSMEDEUS_API_TOKEN to remote MCP URL %s; use --mcp-allow-remote-token to override", mcpURL)
+	}
 
 	// Build config
 	cfg := &executor.RunAgentACPConfig{
@@ -128,13 +137,56 @@ func resolveAgentMessage(args []string) (string, error) {
 	return "", fmt.Errorf("no message provided: use positional argument, --stdin, or pipe with -")
 }
 
-func resolveAgentMCPConfig(url string, disabled bool, token string) executor.RunAgentACPConfig {
+func resolveAgentMCPConfig(mcpURL string, disabled bool, token string, trustedMCPURL string, allowRemoteToken bool) executor.RunAgentACPConfig {
 	if disabled {
 		return executor.RunAgentACPConfig{}
 	}
-	return executor.RunAgentACPConfig{
-		MCPURL:   url,
-		MCPToken: token,
-		MCPName:  "osmedeus",
+	cfg := executor.RunAgentACPConfig{
+		MCPURL:  mcpURL,
+		MCPName: "osmedeus",
+	}
+	if token != "" && (allowRemoteToken || mcpURLTrustsToken(mcpURL, trustedMCPURL)) {
+		cfg.MCPToken = token
+	}
+	return cfg
+}
+
+func mcpURLTrustsToken(mcpURL, trustedMCPURL string) bool {
+	if mcpURL == "" || trustedMCPURL == "" {
+		return false
+	}
+	mcpHost, err := urlHost(mcpURL)
+	if err != nil {
+		return false
+	}
+	trustedHost, err := urlHost(trustedMCPURL)
+	if err != nil {
+		return false
+	}
+	return hostsEquivalent(mcpHost, trustedHost)
+}
+
+func urlHost(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+	if parsed.Host == "" {
+		return "", fmt.Errorf("missing host in URL")
+	}
+	return parsed.Hostname(), nil
+}
+
+func hostsEquivalent(a, b string) bool {
+	return normalizeHost(a) == normalizeHost(b)
+}
+
+func normalizeHost(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	switch host {
+	case "127.0.0.1", "localhost", "::1":
+		return "localhost"
+	default:
+		return host
 	}
 }

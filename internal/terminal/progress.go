@@ -123,7 +123,7 @@ func (m progressModel) View() string {
 		if m.command != "" {
 			linesToGoUp++ // current command line
 		}
-		output.WriteString(fmt.Sprintf("\033[%dA", linesToGoUp))
+		fmt.Fprintf(&output, "\033[%dA", linesToGoUp)
 	} else {
 		// No completed steps - just use carriage return to stay on current line
 		output.WriteString("\r")
@@ -134,22 +134,22 @@ func (m progressModel) View() string {
 		output.WriteString("\033[K") // Clear line
 		statusSymbol := getStepStatusSymbol(step.Status)
 		durationStr := formatElapsed(step.Duration)
-		output.WriteString(fmt.Sprintf("%s %s %s (%s)\n",
+		fmt.Fprintf(&output, "%s %s %s (%s)\n",
 			statusSymbol,
 			step.Symbol,
 			step.Name,
-			Gray(durationStr)))
+			Gray(durationStr))
 
 		// Show command if available
 		if step.Command != "" {
 			output.WriteString("\033[K") // Clear line
-			output.WriteString(fmt.Sprintf("  %s\n", HiGreen(truncateCommand(step.Command, 80))))
+			fmt.Fprintf(&output, "  %s\n", HiGreen(truncateCommand(step.Command, 80)))
 		}
 
 		// Show output if available
 		if step.Output != "" {
 			output.WriteString("\033[K") // Clear line
-			output.WriteString(fmt.Sprintf("    %s\n", Gray(truncateOutput(step.Output, 76))))
+			fmt.Fprintf(&output, "    %s\n", Gray(truncateOutput(step.Output, 76)))
 		}
 	}
 
@@ -158,13 +158,13 @@ func (m progressModel) View() string {
 	percentStr := fmt.Sprintf("%.0f%%", m.progress.Percent()*100)
 
 	output.WriteString("\033[K") // Clear line
-	output.WriteString(fmt.Sprintf("%s %s %s %s %s %s",
+	fmt.Fprintf(&output, "%s %s %s %s %s %s",
 		Blue(m.spinner.View()),
 		Blue(m.description),
 		m.progress.View(),
 		Yellow(percentStr),
 		Gray(countStr),
-		Gray(elapsedStr)))
+		Gray(elapsedStr))
 
 	// Only add newline if we have command to show below
 	if m.command != "" {

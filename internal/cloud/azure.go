@@ -375,9 +375,9 @@ func (p *AzureProvider) createVMProgram(infraID string, opts *CreateOptions) pul
 				StorageProfile: &compute.StorageProfileArgs{
 					ImageReference: &compute.ImageReferenceArgs{
 						Publisher: pulumi.String(publisher),
-						Offer:    pulumi.String(offer),
-						Sku:      pulumi.String(sku),
-						Version:  pulumi.String(version),
+						Offer:     pulumi.String(offer),
+						Sku:       pulumi.String(sku),
+						Version:   pulumi.String(version),
 					},
 					OsDisk: &compute.OSDiskArgs{
 						CreateOption: pulumi.String("FromImage"),

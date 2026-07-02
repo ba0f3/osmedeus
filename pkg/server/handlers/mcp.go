@@ -2,13 +2,18 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/j3ssie/osmedeus/v5/internal/ai"
 	"github.com/j3ssie/osmedeus/v5/internal/config"
 	"github.com/j3ssie/osmedeus/v5/internal/database"
+	oslogger "github.com/j3ssie/osmedeus/v5/internal/logger"
+	"go.uber.org/zap"
 )
+
+const mcpInternalErrorMsg = "Internal error"
 
 type mcpRequest struct {
 	JSONRPC string                 `json:"jsonrpc"`
@@ -29,7 +34,32 @@ type mcpError struct {
 	Message string `json:"message"`
 }
 
-func MCP(cfg *config.Config) fiber.Handler {
+type mcpClientError struct {
+	code    int
+	message string
+}
+
+func (e *mcpClientError) Error() string {
+	return e.message
+}
+
+func newMCPClientError(code int, message string) error {
+	return &mcpClientError{code: code, message: message}
+}
+
+func mcpErrorFrom(err error, reqID interface{}, method string) *mcpError {
+	var clientErr *mcpClientError
+	if errors.As(err, &clientErr) {
+		return &mcpError{Code: clientErr.code, Message: clientErr.message}
+	}
+	oslogger.Get().Error("MCP request failed",
+		zap.Any("id", reqID),
+		zap.String("method", method),
+		zap.Error(err))
+	return &mcpError{Code: -32603, Message: mcpInternalErrorMsg}
+}
+
+func MCP(_ *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var req mcpRequest
 		if err := c.BodyParser(&req); err != nil {
@@ -38,10 +68,10 @@ func MCP(cfg *config.Config) fiber.Handler {
 				Error:   &mcpError{Code: -32700, Message: "invalid JSON"},
 			})
 		}
-		result, err := dispatchMCPTool(c.UserContext(), cfg, req)
+		result, err := dispatchMCPTool(c.UserContext(), req)
 		resp := mcpResponse{JSONRPC: "2.0", ID: req.ID}
 		if err != nil {
-			resp.Error = &mcpError{Code: -32603, Message: err.Error()}
+			resp.Error = mcpErrorFrom(err, req.ID, req.Method)
 		} else {
 			resp.Result = result
 		}
@@ -59,7 +89,7 @@ func MCPHealth() fiber.Handler {
 	}
 }
 
-func dispatchMCPTool(ctx context.Context, cfg *config.Config, req mcpRequest) (interface{}, error) {
+func dispatchMCPTool(ctx context.Context, req mcpRequest) (interface{}, error) {
 	switch req.Method {
 	case "initialize":
 		return map[string]interface{}{
@@ -75,9 +105,9 @@ func dispatchMCPTool(ctx context.Context, cfg *config.Config, req mcpRequest) (i
 	case "tools/list":
 		return map[string]interface{}{"tools": mcpToolDefinitions()}, nil
 	case "tools/call":
-		return callMCPTool(ctx, cfg, req.Params)
+		return callMCPTool(ctx, req.Params)
 	default:
-		return nil, fmt.Errorf("unsupported MCP method: %s", req.Method)
+		return nil, newMCPClientError(-32601, "Method not found")
 	}
 }
 
@@ -90,16 +120,12 @@ func mcpToolDefinitions() []map[string]interface{} {
 	}
 }
 
-func callMCPTool(ctx context.Context, cfg *config.Config, params map[string]interface{}) (interface{}, error) {
+func callMCPTool(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	name, _ := params["name"].(string)
 	args, _ := params["arguments"].(map[string]interface{})
 	db := database.GetDB()
-	if db == nil && cfg != nil {
-		var err error
-		db, err = database.Connect(cfg)
-		if err != nil {
-			return nil, err
-		}
+	if db == nil {
+		return nil, fmt.Errorf("database not connected")
 	}
 	svc := ai.NewService(db, ai.ServiceConfig{MaxLimit: 50})
 	switch name {
@@ -127,7 +153,7 @@ func callMCPTool(ctx context.Context, cfg *config.Config, params map[string]inte
 			Limit:     intArg(args, "limit"),
 		})
 	default:
-		return nil, fmt.Errorf("unknown MCP tool: %s", name)
+		return nil, newMCPClientError(-32601, "Unknown tool")
 	}
 }
 

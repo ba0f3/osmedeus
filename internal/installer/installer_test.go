@@ -81,9 +81,9 @@ func TestMaybePrependSudo(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		input   string
-		expect  string
+		name   string
+		input  string
+		expect string
 	}{
 		{"apt install", "apt install coreutils", "sudo apt install coreutils"},
 		{"apt-get install", "apt-get install -y curl", "sudo apt-get install -y curl"},
