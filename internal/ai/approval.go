@@ -76,7 +76,7 @@ type GetApprovalRequest struct {
 }
 
 type GetApprovalResponse struct {
-	Approval *database.AIApproval     `json:"approval"`
+	Approval *database.AIApproval   `json:"approval"`
 	Payload  map[string]interface{} `json:"payload,omitempty"`
 }
 

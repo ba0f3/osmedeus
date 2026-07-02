@@ -14,11 +14,11 @@ type ContextSummaryRequest struct {
 }
 
 type ContextSummaryResponse struct {
-	Target     string             `json:"target"`
-	Workspaces []WorkspaceSummary `json:"workspaces"`
-	RunCount   int                `json:"run_count"`
-	RunsByStatus map[string]int   `json:"runs_by_status,omitempty"`
-	RecentRuns []database.Run     `json:"recent_runs,omitempty"`
+	Target       string             `json:"target"`
+	Workspaces   []WorkspaceSummary `json:"workspaces"`
+	RunCount     int                `json:"run_count"`
+	RunsByStatus map[string]int     `json:"runs_by_status,omitempty"`
+	RecentRuns   []database.Run     `json:"recent_runs,omitempty"`
 }
 
 func (s *Service) ContextSummary(ctx context.Context, req ContextSummaryRequest) (*ContextSummaryResponse, error) {
@@ -28,16 +28,16 @@ func (s *Service) ContextSummary(ctx context.Context, req ContextSummaryRequest)
 	}
 
 	resp := &ContextSummaryResponse{
-		Target:     resolved.Target,
-		Workspaces: resolved.Workspaces,
-		RunCount:   resolved.RunCount,
+		Target:       resolved.Target,
+		Workspaces:   resolved.Workspaces,
+		RunCount:     resolved.RunCount,
 		RunsByStatus: map[string]int{},
 	}
 
 	runs, err := s.ListRuns(ctx, ListRunsRequest{
-		Target: req.Target,
+		Target:    req.Target,
 		Workspace: req.Workspace,
-		Limit: 10,
+		Limit:     10,
 	})
 	if err == nil && runs != nil {
 		resp.RecentRuns = runs.Records
@@ -50,9 +50,9 @@ func (s *Service) ContextSummary(ctx context.Context, req ContextSummaryRequest)
 }
 
 type GetRunRequest struct {
-	RunUUID           string `json:"run_uuid"`
-	IncludeSteps      bool   `json:"include_steps,omitempty"`
-	IncludeArtifacts  bool   `json:"include_artifacts,omitempty"`
+	RunUUID          string `json:"run_uuid"`
+	IncludeSteps     bool   `json:"include_steps,omitempty"`
+	IncludeArtifacts bool   `json:"include_artifacts,omitempty"`
 }
 
 type GetRunResponse struct {

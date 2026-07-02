@@ -262,9 +262,9 @@ func callMCPTool(ctx context.Context, cfg *config.Config, params map[string]inte
 		case "osmedeus.workflows.promote_temp":
 			return svc.PromoteTempWorkflow(ctx, ai.PromoteTempWorkflowRequest{
 				GeneratedWorkflowID: int64Arg(args, "generated_workflow_id"),
-				WorkflowName:      stringArg(args, "workflow_name"),
-				ApprovalID:        stringArg(args, "approval_id"),
-				Overwrite:         boolArg(args, "overwrite"),
+				WorkflowName:        stringArg(args, "workflow_name"),
+				ApprovalID:          stringArg(args, "approval_id"),
+				Overwrite:           boolArg(args, "overwrite"),
 			})
 		case "osmedeus.approvals.request":
 			return svc.RequestApproval(ctx, ai.RequestApprovalRequest{

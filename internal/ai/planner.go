@@ -121,7 +121,7 @@ type StartApprovedRunRequest struct {
 }
 
 type StartApprovedRunResponse struct {
-	ApprovalID string            `json:"approval_id"`
+	ApprovalID string             `json:"approval_id"`
 	RunPayload ApprovedRunPayload `json:"run_payload"`
 }
 

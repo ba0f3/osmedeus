@@ -23,9 +23,9 @@ type ListArtifactsRequest struct {
 }
 
 type ListArtifactsResponse struct {
-	Total   int                `json:"total"`
-	Limit   int                `json:"limit"`
-	Offset  int                `json:"offset"`
+	Total   int                 `json:"total"`
+	Limit   int                 `json:"limit"`
+	Offset  int                 `json:"offset"`
 	Records []database.Artifact `json:"records"`
 }
 

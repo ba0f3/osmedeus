@@ -155,18 +155,18 @@ func mcpURLTrustsToken(mcpURL, trustedMCPURL string) bool {
 	if mcpURL == "" || trustedMCPURL == "" {
 		return false
 	}
-	mcpHost, err := urlHost(mcpURL)
+	mcpAuthority, err := urlAuthority(mcpURL)
 	if err != nil {
 		return false
 	}
-	trustedHost, err := urlHost(trustedMCPURL)
+	trustedAuthority, err := urlAuthority(trustedMCPURL)
 	if err != nil {
 		return false
 	}
-	return hostsEquivalent(mcpHost, trustedHost)
+	return mcpAuthority == trustedAuthority
 }
 
-func urlHost(rawURL string) (string, error) {
+func urlAuthority(rawURL string) (string, error) {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
@@ -174,11 +174,21 @@ func urlHost(rawURL string) (string, error) {
 	if parsed.Host == "" {
 		return "", fmt.Errorf("missing host in URL")
 	}
-	return parsed.Hostname(), nil
-}
-
-func hostsEquivalent(a, b string) bool {
-	return normalizeHost(a) == normalizeHost(b)
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme == "" {
+		scheme = "http"
+	}
+	host := normalizeHost(parsed.Hostname())
+	port := parsed.Port()
+	if port == "" {
+		switch scheme {
+		case "https":
+			port = "443"
+		default:
+			port = "80"
+		}
+	}
+	return scheme + "://" + host + ":" + port, nil
 }
 
 func normalizeHost(host string) string {

@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	workflowSaveModeNone       = "none"
-	workflowSaveModeNormal     = "normal"
-	workflowSaveModeTemporary  = "temporary"
-	validationStatusValid      = "valid"
+	workflowSaveModeNone         = "none"
+	workflowSaveModeNormal       = "normal"
+	workflowSaveModeTemporary    = "temporary"
+	validationStatusValid        = "valid"
 	validationStatusInvalid      = "invalid"
 	validationStatusNotValidated = "not_validated"
 )
@@ -30,9 +30,9 @@ type SearchWorkflowsRequest struct {
 }
 
 type SearchWorkflowsResponse struct {
-	Total   int                    `json:"total"`
-	Limit   int                    `json:"limit"`
-	Offset  int                    `json:"offset"`
+	Total   int                     `json:"total"`
+	Limit   int                     `json:"limit"`
+	Offset  int                     `json:"offset"`
 	Records []database.WorkflowMeta `json:"records"`
 }
 
@@ -98,8 +98,8 @@ func (s *Service) GetWorkflow(ctx context.Context, req GetWorkflowRequest) (*Get
 }
 
 type ValidateWorkflowRequest struct {
-	YAML                 string `json:"yaml,omitempty"`
-	GeneratedWorkflowID  int64  `json:"generated_workflow_id,omitempty"`
+	YAML                string `json:"yaml,omitempty"`
+	GeneratedWorkflowID int64  `json:"generated_workflow_id,omitempty"`
 }
 
 type ValidateWorkflowResponse struct {
@@ -162,25 +162,25 @@ func (s *Service) ValidateWorkflowYAML(ctx context.Context, req ValidateWorkflow
 }
 
 type GenerateWorkflowRequest struct {
-	Prompt              string `json:"prompt"`
-	Purpose             string `json:"purpose,omitempty"`
-	TargetType          string `json:"target_type,omitempty"`
-	Target              string `json:"target,omitempty"`
-	SaveMode            string `json:"save_mode,omitempty"`
-	WorkflowName        string `json:"workflow_name,omitempty"`
-	Workspace           string `json:"workspace,omitempty"`
-	ApprovalID          string `json:"approval_id,omitempty"`
-	Overwrite           bool   `json:"overwrite,omitempty"`
+	Prompt       string `json:"prompt"`
+	Purpose      string `json:"purpose,omitempty"`
+	TargetType   string `json:"target_type,omitempty"`
+	Target       string `json:"target,omitempty"`
+	SaveMode     string `json:"save_mode,omitempty"`
+	WorkflowName string `json:"workflow_name,omitempty"`
+	Workspace    string `json:"workspace,omitempty"`
+	ApprovalID   string `json:"approval_id,omitempty"`
+	Overwrite    bool   `json:"overwrite,omitempty"`
 }
 
 type GenerateWorkflowResponse struct {
-	GeneratedWorkflowID int64                    `json:"generated_workflow_id"`
-	WorkflowName        string                   `json:"workflow_name,omitempty"`
-	GeneratedYAML       string                   `json:"generated_yaml"`
+	GeneratedWorkflowID int64                     `json:"generated_workflow_id"`
+	WorkflowName        string                    `json:"workflow_name,omitempty"`
+	GeneratedYAML       string                    `json:"generated_yaml"`
 	Validation          *ValidateWorkflowResponse `json:"validation"`
-	Saved               bool                     `json:"saved"`
-	WorkflowPath        string                   `json:"workflow_path,omitempty"`
-	SaveMode            string                   `json:"save_mode"`
+	Saved               bool                      `json:"saved"`
+	WorkflowPath        string                    `json:"workflow_path,omitempty"`
+	SaveMode            string                    `json:"save_mode"`
 }
 
 func (s *Service) GenerateWorkflow(ctx context.Context, req GenerateWorkflowRequest) (*GenerateWorkflowResponse, error) {
