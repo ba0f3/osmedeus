@@ -43,14 +43,14 @@ func (f *PrettyFormatter) Format(result *LintResult, source []byte) string {
 	for _, issue := range result.Issues {
 		// Header: path:line:col: severity[rule]: message
 		severityStr := f.colorSeverity(issue.Severity)
-		sb.WriteString(fmt.Sprintf("%s:%d:%d: %s[%s]: %s\n",
+		fmt.Fprintf(&sb, "%s:%d:%d: %s[%s]: %s\n",
 			displayPath, issue.Line, issue.Column,
-			severityStr, issue.Rule, f.highlightQuoted(issue.Message)))
+			severityStr, issue.Rule, f.highlightQuoted(issue.Message))
 
 		// Source context
 		if f.ShowContext && issue.Line > 0 && issue.Line <= len(lines) {
 			sourceLine := lines[issue.Line-1]
-			sb.WriteString(fmt.Sprintf("   %d | %s\n", issue.Line, sourceLine))
+			fmt.Fprintf(&sb, "   %d | %s\n", issue.Line, sourceLine)
 
 			// Pointer to the issue position
 			if issue.Column > 0 {
@@ -88,11 +88,11 @@ func (f *PrettyFormatter) FormatSummary(results []*LintResult) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %s, %s, %s in %d file(s)\n",
+	fmt.Fprintf(&sb, "Found %s, %s, %s in %d file(s)\n",
 		f.colorError(fmt.Sprintf("%d error(s)", totalErrors)),
 		f.colorWarning(fmt.Sprintf("%d warning(s)", totalWarnings)),
 		f.colorInfo(fmt.Sprintf("%d info(s)", totalInfos)),
-		filesWithIssues))
+		filesWithIssues)
 	sb.WriteString(f.colorMuted("\nNote: The linter shows best practices for writing workflows. You can still execute workflows normally even with linter warnings."))
 	return sb.String()
 }

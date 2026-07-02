@@ -1,0 +1,94 @@
+---
+title: "MCP"
+description: "Remote MCP endpoint for AI agents"
+---
+
+# MCP
+
+Osmedeus exposes a remote MCP endpoint from the existing HTTP server.
+
+Start the server:
+
+```bash
+osmedeus server
+```
+
+Default endpoint:
+
+```text
+http://127.0.0.1:8002/osm/mcp
+```
+
+Print client configuration:
+
+```bash
+export OSM_API_KEY=<your-api-key>
+osmedeus mcp config --print
+```
+
+The printed config uses the `x-osm-api-key` header (same as the REST API key auth). View your key with:
+
+```bash
+osmedeus config view server.auth_api_key
+```
+
+## Tools
+
+### Context
+
+- `osmedeus.context.resolve_target` — resolve target to workspaces and run counts
+- `osmedeus.context.summary` — aggregate workspace and recent run context for a target
+
+### Data search
+
+- `osmedeus.assets.search` — search discovered assets
+- `osmedeus.vulns.search` — search discovered vulnerabilities
+- `osmedeus.runs.list` — list workflow runs
+- `osmedeus.runs.get` — get a single run by `run_uuid` (optional `include_steps`, `include_artifacts`)
+
+### Artifacts
+
+- `osmedeus.artifacts.list` — list artifacts (`workspace`, `search`, `run_uuid`, pagination)
+- `osmedeus.artifacts.read` — read bounded artifact content (`workspace`, `artifact_path`, optional `max_bytes`)
+
+### Workflows
+
+- `osmedeus.workflows.search` — search indexed workflows
+- `osmedeus.workflows.get` — get workflow metadata and YAML definition
+- `osmedeus.workflows.generate` — generate workflow YAML via configured LLM providers (optional gated `save_mode` with `approval_id`)
+- `osmedeus.workflows.validate` — validate YAML (`yaml` or `generated_workflow_id`)
+- `osmedeus.workflows.promote_temp` — promote temporary generated workflow to normal workflow folder (requires approved `approval_id`)
+
+### Approvals
+
+- `osmedeus.approvals.request` — create pending approval (`action_type`, `payload`)
+- `osmedeus.approvals.get` — get approval status and payload
+- `osmedeus.approvals.approve` — approve or reject (`decision`: `approve` | `reject`)
+
+Supported `action_type` values:
+
+- `start_run`
+- `save_workflow_normal`
+- `save_workflow_temporary`
+- `promote_workflow`
+- `overwrite_workflow`
+
+### Scan planning and runs
+
+- `osmedeus.runs.plan` — plan a one-shot scan from target context and workflow matches
+- `osmedeus.runs.start_approved` — start a local run from an approved `start_run` approval
+- `osmedeus.runs.start` — start a local run directly (bypasses approval gate; use when MCP auth is trusted)
+
+## Authentication
+
+When `server.mcp.require_auth` is enabled, MCP POST requests use the same auth middleware as the REST API. Prefer the `x-osm-api-key` header with `server.auth_api_key`; JWT `Authorization: Bearer` is also accepted via `CombinedAuth`.
+
+## Configuration
+
+```yaml
+server:
+  mcp:
+    enabled: true
+    path: /osm/mcp
+    require_auth: true
+```

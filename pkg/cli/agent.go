@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
 
+	"github.com/j3ssie/osmedeus/v5/internal/config"
 	"github.com/j3ssie/osmedeus/v5/internal/core"
 	"github.com/j3ssie/osmedeus/v5/internal/executor"
 	"github.com/j3ssie/osmedeus/v5/internal/terminal"
@@ -15,12 +17,15 @@ import (
 )
 
 var (
-	agentName    string
-	agentModel   string
-	agentCwd     string
-	agentStdin   bool
-	agentTimeout string
-	agentList    bool
+	agentName                string
+	agentModel               string
+	agentCwd                 string
+	agentStdin               bool
+	agentTimeout             string
+	agentList                bool
+	agentNoMCP               bool
+	agentMCPURL              string
+	agentMCPAllowRemoteToken bool
 )
 
 // agentCmd runs an ACP agent interactively from the terminal.
@@ -38,6 +43,9 @@ func init() {
 	agentCmd.Flags().BoolVar(&agentStdin, "stdin", false, "read message from stdin")
 	agentCmd.Flags().StringVar(&agentTimeout, "timeout", "30m", "timeout duration (e.g., 30m, 1h)")
 	agentCmd.Flags().BoolVar(&agentList, "list", false, "list available agents")
+	agentCmd.Flags().BoolVar(&agentNoMCP, "no-mcp", false, "run without Osmedeus MCP tools")
+	agentCmd.Flags().StringVar(&agentMCPURL, "mcp-url", "", "Osmedeus MCP URL (default: configured server URL + /osm/mcp)")
+	agentCmd.Flags().BoolVar(&agentMCPAllowRemoteToken, "mcp-allow-remote-token", false, "allow sending OSM_API_KEY to a remote --mcp-url host")
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
@@ -72,11 +80,32 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	appCfg := config.Get()
+	mcpURL := agentMCPURL
+	trustedMCPURL := ""
+	if appCfg != nil {
+		trustedMCPURL = appCfg.Server.GetMCPURL()
+		if mcpURL == "" {
+			mcpURL = trustedMCPURL
+		}
+	}
+	apiKey := os.Getenv("OSM_API_KEY")
+	if apiKey == "" && appCfg != nil {
+		apiKey = appCfg.Server.AuthAPIKey
+	}
+	mcpCfg := resolveAgentMCPConfig(mcpURL, agentNoMCP, apiKey, trustedMCPURL, agentMCPAllowRemoteToken)
+	if !agentNoMCP && apiKey != "" && mcpURL != "" && mcpCfg.MCPToken == "" {
+		printer.Warning("not sending OSM_API_KEY to remote MCP URL %s; use --mcp-allow-remote-token to override", mcpURL)
+	}
+
 	// Build config
 	cfg := &executor.RunAgentACPConfig{
 		Cwd:          agentCwd,
 		Model:        agentModel,
 		StreamWriter: os.Stdout,
+		MCPURL:       mcpCfg.MCPURL,
+		MCPToken:     mcpCfg.MCPToken,
+		MCPName:      mcpCfg.MCPName,
 	}
 
 	_, _, err = executor.RunAgentACP(ctx, message, agentName, cfg)
@@ -109,4 +138,68 @@ func resolveAgentMessage(args []string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no message provided: use positional argument, --stdin, or pipe with -")
+}
+
+func resolveAgentMCPConfig(mcpURL string, disabled bool, token string, trustedMCPURL string, allowRemoteToken bool) executor.RunAgentACPConfig {
+	if disabled {
+		return executor.RunAgentACPConfig{}
+	}
+	cfg := executor.RunAgentACPConfig{
+		MCPURL:  mcpURL,
+		MCPName: "osmedeus",
+	}
+	if token != "" && (allowRemoteToken || mcpURLTrustsToken(mcpURL, trustedMCPURL)) {
+		cfg.MCPToken = token
+	}
+	return cfg
+}
+
+func mcpURLTrustsToken(mcpURL, trustedMCPURL string) bool {
+	if mcpURL == "" || trustedMCPURL == "" {
+		return false
+	}
+	mcpAuthority, err := urlAuthority(mcpURL)
+	if err != nil {
+		return false
+	}
+	trustedAuthority, err := urlAuthority(trustedMCPURL)
+	if err != nil {
+		return false
+	}
+	return mcpAuthority == trustedAuthority
+}
+
+func urlAuthority(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+	if parsed.Host == "" {
+		return "", fmt.Errorf("missing host in URL")
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme == "" {
+		scheme = "http"
+	}
+	host := normalizeHost(parsed.Hostname())
+	port := parsed.Port()
+	if port == "" {
+		switch scheme {
+		case "https":
+			port = "443"
+		default:
+			port = "80"
+		}
+	}
+	return scheme + "://" + host + ":" + port, nil
+}
+
+func normalizeHost(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	switch host {
+	case "127.0.0.1", "localhost", "::1":
+		return "localhost"
+	default:
+		return host
+	}
 }

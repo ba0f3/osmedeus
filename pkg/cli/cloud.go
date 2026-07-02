@@ -33,18 +33,18 @@ var (
 	cloudForce     bool
 
 	// Cloud run flags
-	cloudFlowName      string
-	cloudModuleName    string
-	cloudTarget        string
-	cloudTargetFile    string
-	cloudTimeout       string
-	cloudAutoDestroy   bool
-	cloudReuseInfra    bool
-	cloudReuseWith     string
-	cloudVerboseSetup  bool
-	cloudUseAnsible    bool
-	cloudSkipSetup     bool
-	cloudSyncBack      bool
+	cloudFlowName     string
+	cloudModuleName   string
+	cloudTarget       string
+	cloudTargetFile   string
+	cloudTimeout      string
+	cloudAutoDestroy  bool
+	cloudReuseInfra   bool
+	cloudReuseWith    string
+	cloudVerboseSetup bool
+	cloudUseAnsible   bool
+	cloudSkipSetup    bool
+	cloudSyncBack     bool
 
 	// Cloud run chunk flags
 	cloudChunkSize  int
@@ -59,7 +59,6 @@ var (
 	// Cloud config set flags
 	cloudConfigSetFromFile string
 )
-
 
 // cloudCmd represents the cloud command
 var cloudCmd = &cobra.Command{
@@ -280,7 +279,6 @@ var cloudConfigListCmd = &cobra.Command{
 		return nil
 	},
 }
-
 
 // cloudConfigCleanCmd resets cloud config and state to a fresh preset
 var cloudConfigCleanCmd = &cobra.Command{

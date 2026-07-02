@@ -18,6 +18,9 @@ dist/config.yaml
 coverage.out
 coverage.html
 
+# Git worktrees (superpowers isolated workspaces)
+.worktrees/
+
 # OS / editor
 .DS_Store
 .idea/

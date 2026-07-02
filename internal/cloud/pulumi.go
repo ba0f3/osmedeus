@@ -49,8 +49,8 @@ func NewPulumiManager(projectName, stackName, statePath string) (*PulumiManager,
 	stack, err := auto.UpsertStackInlineSource(ctx, stackName, projectName, func(ctx *pulumi.Context) error {
 		return nil
 	}, auto.EnvVars(map[string]string{
-		"PULUMI_BACKEND_URL":        backendURL,
-		"PULUMI_CONFIG_PASSPHRASE":  os.Getenv("PULUMI_CONFIG_PASSPHRASE"),
+		"PULUMI_BACKEND_URL":       backendURL,
+		"PULUMI_CONFIG_PASSPHRASE": os.Getenv("PULUMI_CONFIG_PASSPHRASE"),
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stack: %w", err)

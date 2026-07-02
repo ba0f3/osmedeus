@@ -78,6 +78,31 @@ func TestServerConfig_GetServerURL(t *testing.T) {
 	}
 }
 
+func TestServerConfig_GetMCPURL_DefaultPath(t *testing.T) {
+	cfg := ServerConfig{Host: "0.0.0.0", Port: 8002}
+	if got := cfg.GetMCPURL(); got != "http://127.0.0.1:8002/osm/mcp" {
+		t.Fatalf("expected default MCP URL, got %q", got)
+	}
+}
+
+func TestServerConfig_GetMCPURL_CustomPath(t *testing.T) {
+	cfg := ServerConfig{
+		Host: "localhost",
+		Port: 9000,
+		MCP:  MCPConfig{Path: "/custom/mcp"},
+	}
+	if got := cfg.GetMCPURL(); got != "http://localhost:9000/custom/mcp" {
+		t.Fatalf("expected custom MCP URL, got %q", got)
+	}
+}
+
+func TestServerConfig_IsMCPEnabledDefault(t *testing.T) {
+	cfg := ServerConfig{}
+	if !cfg.IsMCPEnabled() {
+		t.Fatal("MCP should default to enabled")
+	}
+}
+
 func TestServerConfig_GetEventReceiverURL(t *testing.T) {
 	tests := []struct {
 		name   string

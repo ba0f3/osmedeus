@@ -148,7 +148,7 @@ func TestRunControlPlaneTmuxSessionTracking(t *testing.T) {
 
 	controlPlane.AddTmuxSession(runUUID, "bosm-aaa11111")
 	controlPlane.AddTmuxSession(runUUID, "bosm-bbb22222")
-	controlPlane.AddTmuxSession(runUUID, "") // ignored
+	controlPlane.AddTmuxSession(runUUID, "")         // ignored
 	controlPlane.AddTmuxSession("", "bosm-ccc33333") // ignored (no run)
 
 	activeRun := controlPlane.Get(runUUID)

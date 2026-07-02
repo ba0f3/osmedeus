@@ -1403,14 +1403,14 @@ func TestDbImportCustomAsset_VigoliumEnvelope(t *testing.T) {
 	assert.Equal(t, "GET", asset1.Method)
 	assert.Equal(t, 200, asset1.StatusCode)
 	assert.Equal(t, "http", asset1.Scheme)
-	assert.Equal(t, "93.184.216.34", asset1.HostIP)             // ip -> host_ip
-	assert.Equal(t, "text/html", asset1.ContentType)             // response_content_type -> content_type
-	assert.Equal(t, int64(1256), asset1.ContentLength)           // response_content_length -> content_length
-	assert.Equal(t, 45, asset1.Words)                            // response_words -> words
-	assert.Equal(t, "Example Domain", asset1.Title)              // response_title -> title
-	assert.Equal(t, "example.com", asset1.Input)                 // hostname -> input
-	assert.Equal(t, "scanner", asset1.Source)                    // source preserved
-	assert.Equal(t, "web", asset1.AssetType)                     // default for http_record
+	assert.Equal(t, "93.184.216.34", asset1.HostIP)    // ip -> host_ip
+	assert.Equal(t, "text/html", asset1.ContentType)   // response_content_type -> content_type
+	assert.Equal(t, int64(1256), asset1.ContentLength) // response_content_length -> content_length
+	assert.Equal(t, 45, asset1.Words)                  // response_words -> words
+	assert.Equal(t, "Example Domain", asset1.Title)    // response_title -> title
+	assert.Equal(t, "example.com", asset1.Input)       // hostname -> input
+	assert.Equal(t, "scanner", asset1.Source)          // source preserved
+	assert.Equal(t, "web", asset1.AssetType)           // default for http_record
 
 	// Verify second http_record
 	var asset2 database.Asset
@@ -1543,8 +1543,8 @@ func TestDbImportCustomAsset_VigoliumWithSourceOverride(t *testing.T) {
 		Where("url = ?", "http://test.com/api").
 		Scan(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "vigolium", asset.Source)  // default source from arg
-	assert.Equal(t, "web", asset.AssetType)    // from envelope default, matches arg too
-	assert.Equal(t, "1.2.3.4", asset.HostIP)   // ip -> host_ip remapped
-	assert.Equal(t, "test.com", asset.Input)    // hostname -> input remapped
+	assert.Equal(t, "vigolium", asset.Source) // default source from arg
+	assert.Equal(t, "web", asset.AssetType)   // from envelope default, matches arg too
+	assert.Equal(t, "1.2.3.4", asset.HostIP)  // ip -> host_ip remapped
+	assert.Equal(t, "test.com", asset.Input)  // hostname -> input remapped
 }

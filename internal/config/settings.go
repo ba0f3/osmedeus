@@ -63,6 +63,19 @@ func (c *Config) Validate() error {
 		c.Server.JWT.ExpirationMinutes = 1440
 	}
 
+	// Set defaults for MCP endpoint
+	if c.Server.MCP.Path == "" {
+		c.Server.MCP.Path = "/osm/mcp"
+	}
+	if c.Server.MCP.Enabled == nil {
+		enabled := true
+		c.Server.MCP.Enabled = &enabled
+	}
+	if c.Server.MCP.RequireAuth == nil {
+		requireAuth := true
+		c.Server.MCP.RequireAuth = &requireAuth
+	}
+
 	// Set default for snapshot path
 	if c.Environments.Snapshot == "" {
 		c.Environments.Snapshot = "{{base_folder}}/snapshot"

@@ -3,8 +3,8 @@ package cloud
 import (
 	"fmt"
 	"os"
-	"strings"
 	"path/filepath"
+	"strings"
 
 	"github.com/j3ssie/osmedeus/v5/internal/config"
 	"gopkg.in/yaml.v3"

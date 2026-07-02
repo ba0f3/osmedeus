@@ -472,6 +472,53 @@ type ServerConfig struct {
 	CORSAllowedOrigins      string            `yaml:"cors_allowed_origins,omitempty"` // CORS allowed origins (default: "*")
 	EventReceiverURL        string            `yaml:"event_receiver_url,omitempty"`   // URL for event receiver (auto-resolved from host:port if empty)
 	EnableTriggerViaWebhook bool              `yaml:"enable_trigger_via_webhook"`     // Enable webhook trigger endpoints (default: false)
+	MCP                     MCPConfig         `yaml:"mcp,omitempty"`
+}
+
+// MCPConfig holds remote MCP endpoint settings for AI agent integration.
+type MCPConfig struct {
+	Enabled     *bool  `yaml:"enabled,omitempty"`
+	Path        string `yaml:"path,omitempty"`
+	RequireAuth *bool  `yaml:"require_auth,omitempty"`
+}
+
+// IsMCPEnabled returns true if the MCP endpoint should be exposed.
+// Defaults to true if not explicitly set.
+func (c *ServerConfig) IsMCPEnabled() bool {
+	if c.MCP.Enabled == nil {
+		return true
+	}
+	return *c.MCP.Enabled
+}
+
+// IsMCPAuthRequired returns true if MCP requests require authentication.
+// Defaults to true if not explicitly set.
+func (c *ServerConfig) IsMCPAuthRequired() bool {
+	if c.MCP.RequireAuth == nil {
+		return true
+	}
+	return *c.MCP.RequireAuth
+}
+
+// GetMCPPath returns the HTTP path for the MCP endpoint.
+func (c *ServerConfig) GetMCPPath() string {
+	if strings.TrimSpace(c.MCP.Path) == "" {
+		return "/osm/mcp"
+	}
+	path := strings.TrimSpace(c.MCP.Path)
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return path
+}
+
+// GetMCPURL returns the full MCP endpoint URL.
+func (c *ServerConfig) GetMCPURL() string {
+	base := c.GetServerURL()
+	if base == "" {
+		return ""
+	}
+	return strings.TrimSuffix(base, "/") + c.GetMCPPath()
 }
 
 // IsMetricsEnabled returns true if the metrics endpoint should be enabled.

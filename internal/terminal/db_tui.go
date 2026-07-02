@@ -836,7 +836,7 @@ func (m dbTUIModel) viewTableDetailView() string {
 
 	// Error
 	if m.err != nil {
-		b.WriteString(fmt.Sprintf("Error: %v\n", m.err))
+		fmt.Fprintf(&b, "Error: %v\n", m.err)
 		return b.String()
 	}
 
