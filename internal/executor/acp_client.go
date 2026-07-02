@@ -284,10 +284,10 @@ func (c *acpClient) CreateTerminal(_ context.Context, p acp.CreateTerminalReques
 	return acp.CreateTerminalResponse{TerminalId: "osmedeus-stub-term"}, nil
 }
 
-// KillTerminalCommand is a no-op.
-func (c *acpClient) KillTerminalCommand(_ context.Context, _ acp.KillTerminalCommandRequest) (acp.KillTerminalCommandResponse, error) {
-	oslogger.Get().Debug("acp KillTerminalCommand (no-op)")
-	return acp.KillTerminalCommandResponse{}, nil
+// KillTerminal is a no-op.
+func (c *acpClient) KillTerminal(_ context.Context, _ acp.KillTerminalRequest) (acp.KillTerminalResponse, error) {
+	oslogger.Get().Debug("acp KillTerminal (no-op)")
+	return acp.KillTerminalResponse{}, nil
 }
 
 // ReleaseTerminal is a no-op.
