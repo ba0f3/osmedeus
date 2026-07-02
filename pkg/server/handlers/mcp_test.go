@@ -34,6 +34,16 @@ func TestMCPToolsList(t *testing.T) {
 	resp, err := app.Test(req)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	var decoded mcpResponse
+	require.NoError(t, json.Unmarshal(respBody, &decoded))
+	result, ok := decoded.Result.(map[string]interface{})
+	require.True(t, ok)
+	tools, ok := result["tools"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, tools, 19)
 }
 
 func TestMCPUnknownMethodReturnsJSONRPCError(t *testing.T) {
@@ -100,4 +110,23 @@ func TestMCPHandlerAllowsGetHealth(t *testing.T) {
 	resp, err := app.Test(req)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestMCPRunsStartRequiresTarget(t *testing.T) {
+	app := fiber.New()
+	app.Post("/osm/mcp", MCP(&config.Config{}))
+	body := `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"osmedeus.runs.start","arguments":{"module":"basic-recon"}}}`
+	req := httptest.NewRequest(http.MethodPost, "/osm/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	var decoded mcpResponse
+	require.NoError(t, json.Unmarshal(respBody, &decoded))
+	require.NotNil(t, decoded.Error)
+	require.Equal(t, -32602, decoded.Error.Code)
+	require.Contains(t, decoded.Error.Message, "target")
 }

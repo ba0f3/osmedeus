@@ -26,11 +26,63 @@ export OSMEDEUS_API_TOKEN=<token>
 osmedeus mcp config --print
 ```
 
-The endpoint provides read-only tools in the foundation release:
+## Tools
 
-- `osmedeus.context.resolve_target`
-- `osmedeus.assets.search`
-- `osmedeus.vulns.search`
-- `osmedeus.runs.list`
+### Context
 
-Tools that save workflows or launch scans are not part of the foundation release. Those actions require approval-gated tools.
+- `osmedeus.context.resolve_target` — resolve target to workspaces and run counts
+- `osmedeus.context.summary` — aggregate workspace and recent run context for a target
+
+### Data search
+
+- `osmedeus.assets.search` — search discovered assets
+- `osmedeus.vulns.search` — search discovered vulnerabilities
+- `osmedeus.runs.list` — list workflow runs
+- `osmedeus.runs.get` — get a single run by `run_uuid` (optional `include_steps`, `include_artifacts`)
+
+### Artifacts
+
+- `osmedeus.artifacts.list` — list artifacts (`workspace`, `search`, `run_uuid`, pagination)
+- `osmedeus.artifacts.read` — read bounded artifact content (`workspace`, `artifact_path`, optional `max_bytes`)
+
+### Workflows
+
+- `osmedeus.workflows.search` — search indexed workflows
+- `osmedeus.workflows.get` — get workflow metadata and YAML definition
+- `osmedeus.workflows.generate` — generate workflow YAML via configured LLM providers (optional gated `save_mode` with `approval_id`)
+- `osmedeus.workflows.validate` — validate YAML (`yaml` or `generated_workflow_id`)
+- `osmedeus.workflows.promote_temp` — promote temporary generated workflow to normal workflow folder (requires approved `approval_id`)
+
+### Approvals
+
+- `osmedeus.approvals.request` — create pending approval (`action_type`, `payload`)
+- `osmedeus.approvals.get` — get approval status and payload
+- `osmedeus.approvals.approve` — approve or reject (`decision`: `approve` | `reject`)
+
+Supported `action_type` values:
+
+- `start_run`
+- `save_workflow_normal`
+- `save_workflow_temporary`
+- `promote_workflow`
+- `overwrite_workflow`
+
+### Scan planning and runs
+
+- `osmedeus.runs.plan` — plan a one-shot scan from target context and workflow matches
+- `osmedeus.runs.start_approved` — start a local run from an approved `start_run` approval
+- `osmedeus.runs.start` — start a local run directly (bypasses approval gate; use when MCP auth is trusted)
+
+## Authentication
+
+When `server.mcp.require_auth` is enabled, MCP POST requests use the same auth middleware as the REST API (`Authorization: Bearer <token>` or API key).
+
+## Configuration
+
+```yaml
+server:
+  mcp:
+    enabled: true
+    path: /osm/mcp
+    require_auth: true
+```

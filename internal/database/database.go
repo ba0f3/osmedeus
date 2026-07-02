@@ -190,6 +190,8 @@ func Migrate(ctx context.Context) error {
 		(*AssetDiffSnapshot)(nil),
 		(*VulnDiffSnapshot)(nil),
 		(*AgentSession)(nil),
+		(*AIApproval)(nil),
+		(*AIGeneratedWorkflow)(nil),
 	}
 
 	for _, model := range models {

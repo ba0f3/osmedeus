@@ -1,9 +1,13 @@
 package ai
 
-import "github.com/j3ssie/osmedeus/v5/internal/database"
+import (
+	"github.com/j3ssie/osmedeus/v5/internal/config"
+	"github.com/j3ssie/osmedeus/v5/internal/database"
+)
 
 type ServiceConfig struct {
-	MaxLimit int
+	MaxLimit  int
+	AppConfig *config.Config
 }
 
 type ResolveTargetRequest struct {

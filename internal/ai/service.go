@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/j3ssie/osmedeus/v5/internal/config"
 	"github.com/j3ssie/osmedeus/v5/internal/database"
 	"github.com/uptrace/bun"
 )
 
 type Service struct {
 	db       *bun.DB
+	cfg      *config.Config
 	maxLimit int
 }
 
@@ -19,7 +21,14 @@ func NewService(db *bun.DB, cfg ServiceConfig) *Service {
 	if maxLimit <= 0 {
 		maxLimit = 50
 	}
-	return &Service{db: db, maxLimit: maxLimit}
+	return &Service{db: db, cfg: cfg.AppConfig, maxLimit: maxLimit}
+}
+
+func (s *Service) requireConfig() error {
+	if s == nil || s.cfg == nil {
+		return fmt.Errorf("configuration not loaded")
+	}
+	return nil
 }
 
 func (s *Service) requireDB() error {

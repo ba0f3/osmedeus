@@ -165,6 +165,11 @@ func upsertWorkflowMeta(ctx context.Context, w *core.Workflow, force bool) error
 	return err
 }
 
+// IndexWorkflow upserts a single workflow into the workflow index.
+func IndexWorkflow(ctx context.Context, w *core.Workflow) error {
+	return upsertWorkflowMeta(ctx, w, true)
+}
+
 // ListWorkflowsFromDB returns paginated workflow metadata from database
 func ListWorkflowsFromDB(ctx context.Context, query WorkflowQuery) (*WorkflowMetaResult, error) {
 	if db == nil {
