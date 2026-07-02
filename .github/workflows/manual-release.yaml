@@ -8,29 +8,26 @@ permissions:
   packages: write
 
 jobs:
-  resolve-tag:
+  release:
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.get-tag.outputs.tag }}
-    steps:
-      - name: Get latest release tag
-        id: get-tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=$(gh release view --json tagName -q .tagName)
-          echo "Latest release tag: $TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-
-  manual-release:
-    needs: resolve-tag
-    runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve-tag.outputs.tag }}
           fetch-depth: 0
+
+      - name: Resolve latest tag
+        id: get-tag
+        run: |
+          TAG=$(git tag --sort=-v:refname | head -1)
+          if [ -z "$TAG" ]; then
+            echo "No git tags found"
+            exit 1
+          fi
+          echo "Latest tag: $TAG"
+          git checkout "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -40,8 +37,12 @@ jobs:
       - name: Delete existing release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.resolve-tag.outputs.tag }}
+          TAG: ${{ steps.get-tag.outputs.tag }}
         run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "No GitHub release for $TAG yet, skipping asset cleanup"
+            exit 0
+          fi
           gh release view "$TAG" --json assets -q '.assets[].name' | while read -r asset; do
             echo "Deleting asset: $asset"
             gh release delete-asset "$TAG" "$asset" --yes
@@ -55,36 +56,15 @@ jobs:
           args: release --clean --skip=validate --parallelism=1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: ${{ needs.resolve-tag.outputs.tag }}
+          GORELEASER_CURRENT_TAG: ${{ steps.get-tag.outputs.tag }}
           GOGC: "50"
           GOMEMLIMIT: "5GiB"
-
-      - name: Mark release as latest
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.resolve-tag.outputs.tag }}
-        run: |
-          echo "Marking $TAG as latest release"
-          gh release edit "$TAG" --latest
-
-  docker-release:
-    needs: resolve-tag
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve-tag.outputs.tag }}
 
       - name: Set build metadata
         id: build-meta
         run: |
           echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
-          echo "commit_hash=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -106,7 +86,7 @@ jobs:
           file: build/docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ needs.resolve-tag.outputs.tag }}
+          tags: ghcr.io/${{ github.repository }}:${{ steps.get-tag.outputs.tag }}
           build-args: |
             BUILD_TIME=${{ steps.build-meta.outputs.build_time }}
             COMMIT_HASH=${{ steps.build-meta.outputs.commit_hash }}
