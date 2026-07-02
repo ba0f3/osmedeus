@@ -16,4 +16,7 @@ func TestBuildMCPConfigJSON(t *testing.T) {
 	require.Equal(t, "http", server["type"])
 	require.Equal(t, "http://127.0.0.1:8002/osm/mcp", server["url"])
 	require.NotNil(t, server["headers"])
+	headers, ok := server["headers"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "${OSM_API_KEY}", headers["x-osm-api-key"])
 }

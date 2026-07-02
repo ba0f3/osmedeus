@@ -22,8 +22,14 @@ http://127.0.0.1:8002/osm/mcp
 Print client configuration:
 
 ```bash
-export OSMEDEUS_API_TOKEN=<token>
+export OSM_API_KEY=<your-api-key>
 osmedeus mcp config --print
+```
+
+The printed config uses the `x-osm-api-key` header (same as the REST API key auth). View your key with:
+
+```bash
+osmedeus config view server.auth_api_key
 ```
 
 ## Tools
@@ -75,7 +81,7 @@ Supported `action_type` values:
 
 ## Authentication
 
-When `server.mcp.require_auth` is enabled, MCP POST requests use the same auth middleware as the REST API (`Authorization: Bearer <token>` or API key).
+When `server.mcp.require_auth` is enabled, MCP POST requests use the same auth middleware as the REST API. Prefer the `x-osm-api-key` header with `server.auth_api_key`; JWT `Authorization: Bearer` is also accepted via `CombinedAuth`.
 
 ## Configuration
 

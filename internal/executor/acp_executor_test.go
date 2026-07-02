@@ -423,8 +423,8 @@ func TestBuildHTTPMCPServer(t *testing.T) {
 	require.Equal(t, "http", server.Http.Type)
 	require.Equal(t, "http://127.0.0.1:8002/osm/mcp", server.Http.Url)
 	require.Len(t, server.Http.Headers, 1)
-	require.Equal(t, "Authorization", server.Http.Headers[0].Name)
-	require.Equal(t, "Bearer secret", server.Http.Headers[0].Value)
+	require.Equal(t, "x-osm-api-key", server.Http.Headers[0].Name)
+	require.Equal(t, "secret", server.Http.Headers[0].Value)
 }
 
 func TestRunAgentACPConfigMCPEnabled(t *testing.T) {

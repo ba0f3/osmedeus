@@ -44,7 +44,7 @@ func buildMCPConfigJSON(url string, requireAuth bool) (string, error) {
 	}
 	if requireAuth {
 		server["headers"] = map[string]string{
-			"Authorization": "Bearer ${OSMEDEUS_API_TOKEN}",
+			"x-osm-api-key": "${OSM_API_KEY}",
 		}
 	}
 	payload := map[string]interface{}{

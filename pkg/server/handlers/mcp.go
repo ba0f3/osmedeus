@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/j3ssie/osmedeus/v5/internal/ai"
@@ -68,6 +70,9 @@ func MCP(cfg *config.Config) fiber.Handler {
 				Error:   &mcpError{Code: -32700, Message: "invalid JSON"},
 			})
 		}
+		if isMCPNotification(req) {
+			return c.SendStatus(fiber.StatusNoContent)
+		}
 		result, err := dispatchMCPTool(c.UserContext(), cfg, req)
 		resp := mcpResponse{JSONRPC: "2.0", ID: req.ID}
 		if err != nil {
@@ -89,6 +94,10 @@ func MCPHealth() fiber.Handler {
 	}
 }
 
+func isMCPNotification(req mcpRequest) bool {
+	return strings.HasPrefix(req.Method, "notifications/")
+}
+
 func dispatchMCPTool(ctx context.Context, cfg *config.Config, req mcpRequest) (interface{}, error) {
 	switch req.Method {
 	case "initialize":
@@ -105,7 +114,11 @@ func dispatchMCPTool(ctx context.Context, cfg *config.Config, req mcpRequest) (i
 	case "tools/list":
 		return map[string]interface{}{"tools": mcpToolDefinitions()}, nil
 	case "tools/call":
-		return callMCPTool(ctx, cfg, req.Params)
+		result, err := callMCPTool(ctx, cfg, req.Params)
+		if err != nil {
+			return nil, err
+		}
+		return mcpFormatToolResult(result), nil
 	default:
 		return nil, newMCPClientError(-32601, "Method not found")
 	}
@@ -141,9 +154,188 @@ func mcpToolDefinitions() []map[string]interface{} {
 		out = append(out, map[string]interface{}{
 			"name":        tool.name,
 			"description": tool.description,
+			"inputSchema": mcpToolInputSchema(tool.name),
 		})
 	}
 	return out
+}
+
+func mcpFormatToolResult(result interface{}) map[string]interface{} {
+	text, err := json.Marshal(result)
+	if err != nil {
+		text = []byte(fmt.Sprintf("%v", result))
+	}
+	return map[string]interface{}{
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": string(text),
+			},
+		},
+	}
+}
+
+func mcpToolInputSchema(toolName string) map[string]interface{} {
+	stringProp := func(desc string) map[string]interface{} {
+		return map[string]interface{}{"type": "string", "description": desc}
+	}
+	intProp := func(desc string) map[string]interface{} {
+		return map[string]interface{}{"type": "integer", "description": desc}
+	}
+	boolProp := func(desc string) map[string]interface{} {
+		return map[string]interface{}{"type": "boolean", "description": desc}
+	}
+	objectProp := func(desc string) map[string]interface{} {
+		return map[string]interface{}{"type": "object", "description": desc}
+	}
+	schema := func(props map[string]interface{}, required ...string) map[string]interface{} {
+		out := map[string]interface{}{
+			"type":       "object",
+			"properties": props,
+		}
+		if len(required) > 0 {
+			out["required"] = required
+		}
+		return out
+	}
+
+	switch toolName {
+	case "osmedeus.context.resolve_target":
+		return schema(map[string]interface{}{"target": stringProp("Target to resolve")}, "target")
+	case "osmedeus.context.summary":
+		return schema(map[string]interface{}{
+			"target":    stringProp("Target to summarize"),
+			"workspace": stringProp("Optional workspace filter"),
+		}, "target")
+	case "osmedeus.assets.search":
+		return schema(map[string]interface{}{
+			"workspace":  stringProp("Workspace filter"),
+			"search":     stringProp("Search query"),
+			"asset_type": stringProp("Asset type filter"),
+			"limit":      intProp("Maximum records to return"),
+			"offset":     intProp("Pagination offset"),
+		})
+	case "osmedeus.vulns.search":
+		return schema(map[string]interface{}{
+			"workspace": stringProp("Workspace filter"),
+			"severity":  stringProp("Severity filter"),
+			"search":    stringProp("Search query"),
+			"limit":     intProp("Maximum records to return"),
+			"offset":    intProp("Pagination offset"),
+		})
+	case "osmedeus.runs.list":
+		return schema(map[string]interface{}{
+			"target":    stringProp("Target filter"),
+			"workspace": stringProp("Workspace filter"),
+			"status":    stringProp("Run status filter"),
+			"limit":     intProp("Maximum records to return"),
+			"offset":    intProp("Pagination offset"),
+		})
+	case "osmedeus.runs.get":
+		return schema(map[string]interface{}{
+			"run_uuid":          stringProp("Run UUID"),
+			"include_steps":     boolProp("Include step results"),
+			"include_artifacts": boolProp("Include artifact metadata"),
+		}, "run_uuid")
+	case "osmedeus.artifacts.list":
+		return schema(map[string]interface{}{
+			"workspace": stringProp("Workspace filter"),
+			"search":    stringProp("Search query"),
+			"run_uuid":  stringProp("Run UUID filter"),
+			"limit":     intProp("Maximum records to return"),
+			"offset":    intProp("Pagination offset"),
+		})
+	case "osmedeus.artifacts.read":
+		return schema(map[string]interface{}{
+			"workspace":     stringProp("Workspace name"),
+			"artifact_path": stringProp("Artifact path relative to workspace"),
+			"max_bytes":     intProp("Maximum bytes to read"),
+		}, "workspace", "artifact_path")
+	case "osmedeus.workflows.search":
+		return schema(map[string]interface{}{
+			"search": stringProp("Search query"),
+			"kind":   stringProp("Workflow kind filter"),
+			"tags": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Tag filters",
+			},
+			"limit":  intProp("Maximum records to return"),
+			"offset": intProp("Pagination offset"),
+		})
+	case "osmedeus.workflows.get":
+		return schema(map[string]interface{}{"name": stringProp("Workflow name")}, "name")
+	case "osmedeus.workflows.generate":
+		return schema(map[string]interface{}{
+			"prompt":        stringProp("Generation prompt"),
+			"purpose":       stringProp("Workflow purpose"),
+			"target_type":   stringProp("Target type"),
+			"target":        stringProp("Target value"),
+			"save_mode":     stringProp("Save mode: none, normal, temporary"),
+			"workflow_name": stringProp("Workflow name override"),
+			"workspace":     stringProp("Workspace for temporary save"),
+			"approval_id":   stringProp("Approved save approval ID"),
+			"overwrite":     boolProp("Overwrite existing workflow"),
+		}, "prompt")
+	case "osmedeus.workflows.validate":
+		return schema(map[string]interface{}{
+			"yaml":                  stringProp("Workflow YAML to validate"),
+			"generated_workflow_id": intProp("Generated workflow record ID"),
+		})
+	case "osmedeus.workflows.promote_temp":
+		return schema(map[string]interface{}{
+			"generated_workflow_id": intProp("Generated workflow record ID"),
+			"workflow_name":       stringProp("Workflow name override"),
+			"approval_id":         stringProp("Approved promote approval ID"),
+			"overwrite":           boolProp("Overwrite existing workflow"),
+		}, "generated_workflow_id", "approval_id")
+	case "osmedeus.approvals.request":
+		return schema(map[string]interface{}{
+			"action_type":      stringProp("Approval action type"),
+			"payload":          objectProp("Action payload"),
+			"requester_source": stringProp("Requester metadata"),
+			"ttl_minutes":      intProp("Approval TTL in minutes"),
+		}, "action_type", "payload")
+	case "osmedeus.approvals.get":
+		return schema(map[string]interface{}{"approval_id": stringProp("Approval ID")}, "approval_id")
+	case "osmedeus.approvals.approve":
+		return schema(map[string]interface{}{
+			"approval_id": stringProp("Approval ID"),
+			"decision":    stringProp("approve or reject"),
+		}, "approval_id", "decision")
+	case "osmedeus.runs.plan":
+		return schema(map[string]interface{}{
+			"target":    stringProp("Scan target"),
+			"goal":      stringProp("Scan goal"),
+			"prompt":    stringProp("Alternative prompt for goal"),
+			"workspace": stringProp("Workspace filter"),
+		}, "target")
+	case "osmedeus.runs.start":
+		return schema(map[string]interface{}{
+			"flow":              stringProp("Flow name"),
+			"module":            stringProp("Module name"),
+			"target":            stringProp("Target"),
+			"targets":           map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+			"target_file":       stringProp("Targets file path"),
+			"params":            objectProp("Workflow params"),
+			"priority":          stringProp("Run priority"),
+			"run_mode":          stringProp("Run mode"),
+			"runner_type":       stringProp("Runner type"),
+			"docker_image":      stringProp("Docker image"),
+			"ssh_host":          stringProp("SSH host"),
+			"heuristics_check":  stringProp("Heuristics check mode"),
+			"repeat_wait_time":  stringProp("Repeat wait time"),
+			"timeout":           intProp("Timeout in seconds"),
+			"concurrency":       intProp("Concurrency"),
+			"threads_hold":      intProp("Threads hold"),
+			"empty_target":      boolProp("Use empty target"),
+			"repeat":            boolProp("Repeat run"),
+		})
+	case "osmedeus.runs.start_approved":
+		return schema(map[string]interface{}{"approval_id": stringProp("Approved start_run approval ID")}, "approval_id")
+	default:
+		return schema(map[string]interface{}{})
+	}
 }
 
 func callMCPTool(ctx context.Context, cfg *config.Config, params map[string]interface{}) (interface{}, error) {

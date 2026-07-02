@@ -44,6 +44,23 @@ func TestMCPToolsList(t *testing.T) {
 	tools, ok := result["tools"].([]interface{})
 	require.True(t, ok)
 	require.Len(t, tools, 19)
+	first, ok := tools[0].(map[string]interface{})
+	require.True(t, ok)
+	require.NotNil(t, first["inputSchema"])
+	schema, ok := first["inputSchema"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "object", schema["type"])
+}
+
+func TestMCPInitializedNotificationReturnsNoContent(t *testing.T) {
+	app := fiber.New()
+	app.Post("/osm/mcp", MCP(&config.Config{}))
+	body := `{"jsonrpc":"2.0","method":"notifications/initialized"}`
+	req := httptest.NewRequest(http.MethodPost, "/osm/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 }
 
 func TestMCPUnknownMethodReturnsJSONRPCError(t *testing.T) {

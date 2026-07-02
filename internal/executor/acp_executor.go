@@ -183,7 +183,7 @@ type RunAgentACPConfig struct {
 	StreamWriter io.Writer         // Optional writer for real-time output streaming
 	Model        string            // LLM model override (ACP session config or agent CLI flag)
 	MCPURL       string            // Remote Osmedeus MCP HTTP endpoint
-	MCPToken     string            // Bearer token for MCP requests
+	MCPToken     string            // API key for x-osm-api-key MCP requests
 	MCPName      string            // MCP server name passed to the agent
 }
 
@@ -191,13 +191,13 @@ func (c *RunAgentACPConfig) HasMCP() bool {
 	return c != nil && strings.TrimSpace(c.MCPURL) != ""
 }
 
-func buildHTTPMCPServer(name, url, token string) acp.McpServer {
+func buildHTTPMCPServer(name, url, apiKey string) acp.McpServer {
 	if name == "" {
 		name = "osmedeus"
 	}
 	headers := []acp.HttpHeader{}
-	if token != "" {
-		headers = append(headers, acp.HttpHeader{Name: "Authorization", Value: "Bearer " + token})
+	if apiKey != "" {
+		headers = append(headers, acp.HttpHeader{Name: "x-osm-api-key", Value: apiKey})
 	}
 	return acp.McpServer{Http: &acp.McpServerHttpInline{
 		Name:    name,

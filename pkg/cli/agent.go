@@ -45,7 +45,7 @@ func init() {
 	agentCmd.Flags().BoolVar(&agentList, "list", false, "list available agents")
 	agentCmd.Flags().BoolVar(&agentNoMCP, "no-mcp", false, "run without Osmedeus MCP tools")
 	agentCmd.Flags().StringVar(&agentMCPURL, "mcp-url", "", "Osmedeus MCP URL (default: configured server URL + /osm/mcp)")
-	agentCmd.Flags().BoolVar(&agentMCPAllowRemoteToken, "mcp-allow-remote-token", false, "allow sending OSMEDEUS_API_TOKEN to a remote --mcp-url host")
+	agentCmd.Flags().BoolVar(&agentMCPAllowRemoteToken, "mcp-allow-remote-token", false, "allow sending OSM_API_KEY to a remote --mcp-url host")
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
@@ -89,10 +89,13 @@ func runAgent(cmd *cobra.Command, args []string) error {
 			mcpURL = trustedMCPURL
 		}
 	}
-	token := os.Getenv("OSMEDEUS_API_TOKEN")
-	mcpCfg := resolveAgentMCPConfig(mcpURL, agentNoMCP, token, trustedMCPURL, agentMCPAllowRemoteToken)
-	if !agentNoMCP && token != "" && mcpURL != "" && mcpCfg.MCPToken == "" {
-		printer.Warning("not sending OSMEDEUS_API_TOKEN to remote MCP URL %s; use --mcp-allow-remote-token to override", mcpURL)
+	apiKey := os.Getenv("OSM_API_KEY")
+	if apiKey == "" && appCfg != nil {
+		apiKey = appCfg.Server.AuthAPIKey
+	}
+	mcpCfg := resolveAgentMCPConfig(mcpURL, agentNoMCP, apiKey, trustedMCPURL, agentMCPAllowRemoteToken)
+	if !agentNoMCP && apiKey != "" && mcpURL != "" && mcpCfg.MCPToken == "" {
+		printer.Warning("not sending OSM_API_KEY to remote MCP URL %s; use --mcp-allow-remote-token to override", mcpURL)
 	}
 
 	// Build config
