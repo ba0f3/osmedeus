@@ -268,6 +268,9 @@ func RunAgentACP(ctx context.Context, prompt, agentName string, cfg *RunAgentACP
 			stderrBuf.WriteByte('\n')
 			log.Debug("acp agent stderr", zap.String("line", line))
 		}
+		if err := scanner.Err(); err != nil {
+			log.Debug("acp agent stderr scanner error", zap.Error(err))
+		}
 	}()
 
 	defer func() {
